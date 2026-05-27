@@ -235,8 +235,13 @@ fun DashboardScreen() {
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     )
+                    val formattedNextPeriod = formatPredictionDate(currentUser?.predictedPeriodDate)
                     Text(
-                        text = "Calculated using a $cycleLength-day cycle interval.",
+                        text = if (!currentUser?.predictedPeriodDate.isNullOrEmpty()) {
+                            "Predicted: $formattedNextPeriod (average $cycleLength-day cycles)"
+                        } else {
+                            "Calculated using a $cycleLength-day cycle interval."
+                        },
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                         )
@@ -261,14 +266,18 @@ fun DashboardScreen() {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Ovulation Prediction",
+                        text = "Predicted Ovulation",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Day 14 (±2d)",
+                        text = if (!currentUser?.predictedOvulationDate.isNullOrEmpty()) {
+                            formatPredictionDate(currentUser?.predictedOvulationDate)
+                        } else {
+                            "Day 14 (±2d)"
+                        },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -293,7 +302,11 @@ fun DashboardScreen() {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Days 10 to 16",
+                        text = if (!currentUser?.predictedFertileStart.isNullOrEmpty()) {
+                            formatPredictionRange(currentUser?.predictedFertileStart, currentUser?.predictedFertileEnd)
+                        } else {
+                            "Days 10 to 16"
+                        },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.secondary
@@ -580,3 +593,32 @@ private data class TripleFive(
     val accent: Color,
     val progress: Float
 )
+
+private fun formatPredictionDate(dateStr: String?): String {
+    if (dateStr.isNullOrEmpty()) return "No data"
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val formatter = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val date = parser.parse(dateStr)
+        if (date != null) formatter.format(date) else dateStr
+    } catch (e: Exception) {
+        dateStr
+    }
+}
+
+private fun formatPredictionRange(startStr: String?, endStr: String?): String {
+    if (startStr.isNullOrEmpty() || endStr.isNullOrEmpty()) return "No data"
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val formatter = SimpleDateFormat("MMM d", Locale.getDefault())
+        val startDate = parser.parse(startStr)
+        val endDate = parser.parse(endStr)
+        if (startDate != null && endDate != null) {
+            "${formatter.format(startDate)} - ${formatter.format(endDate)}"
+        } else {
+            "$startStr - $endStr"
+        }
+    } catch (e: Exception) {
+        "$startStr - $endStr"
+    }
+}

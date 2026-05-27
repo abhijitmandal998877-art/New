@@ -273,20 +273,20 @@ object FirebaseManager {
                     val updatedList = (_periodLogs.value + log).sortedByDescending { it.startDate }
                     _periodLogs.value = updatedList
                     saveLogsLocal(updatedList)
-                    onResult(true)
+                    recomputePredictionsForUser { onResult(true) }
                 }
                 ?.addOnFailureListener {
                     // Save locally as temporary backup
                     val updatedList = (_periodLogs.value + log).sortedByDescending { it.startDate }
                     _periodLogs.value = updatedList
                     saveLogsLocal(updatedList)
-                    onResult(true)
+                    recomputePredictionsForUser { onResult(true) }
                 }
         } else {
             val updatedList = (_periodLogs.value + log).sortedByDescending { it.startDate }
             _periodLogs.value = updatedList
             saveLogsLocal(updatedList)
-            onResult(true)
+            recomputePredictionsForUser { onResult(true) }
         }
     }
 
@@ -298,7 +298,7 @@ object FirebaseManager {
                     val updatedList = _periodLogs.value.filter { it.id != logId }
                     _periodLogs.value = updatedList
                     saveLogsLocal(updatedList)
-                    onResult(true)
+                    recomputePredictionsForUser { onResult(true) }
                 }
                 ?.addOnFailureListener {
                     onResult(false)
@@ -307,7 +307,76 @@ object FirebaseManager {
             val updatedList = _periodLogs.value.filter { it.id != logId }
             _periodLogs.value = updatedList
             saveLogsLocal(updatedList)
-            onResult(true)
+            recomputePredictionsForUser { onResult(true) }
+        }
+    }
+
+    fun recomputePredictionsForUser(onFinished: ((Boolean) -> Unit)? = null) {
+        val userItem = _currentUserFlow.value ?: run {
+            onFinished?.invoke(false)
+            return
+        }
+        val latestLog = _periodLogs.value.firstOrNull()
+        
+        val updatedUser = if (latestLog != null) {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            var nextPeriodDate = ""
+            var ovulationDate = ""
+            var fertileStart = ""
+            var fertileEnd = ""
+
+            try {
+                val calendar = Calendar.getInstance()
+                calendar.time = sdf.parse(latestLog.startDate) ?: Date()
+                
+                calendar.add(Calendar.DAY_OF_YEAR, latestLog.cycleLength)
+                nextPeriodDate = sdf.format(calendar.time)
+
+                calendar.time = sdf.parse(latestLog.startDate) ?: Date()
+                calendar.add(Calendar.DAY_OF_YEAR, latestLog.cycleLength - 14)
+                ovulationDate = sdf.format(calendar.time)
+
+                val fStartCal = Calendar.getInstance().apply {
+                    time = sdf.parse(ovulationDate) ?: Date()
+                    add(Calendar.DAY_OF_YEAR, -4)
+                }
+                fertileStart = sdf.format(fStartCal.time)
+
+                val fEndCal = Calendar.getInstance().apply {
+                    time = sdf.parse(ovulationDate) ?: Date()
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+                fertileEnd = sdf.format(fEndCal.time)
+            } catch (e: Exception) {
+                Log.e(TAG, "Recompute failed: ${e.message}")
+            }
+
+            userItem.copy(
+                predictedPeriodDate = nextPeriodDate,
+                predictedOvulationDate = ovulationDate,
+                predictedFertileStart = fertileStart,
+                predictedFertileEnd = fertileEnd
+            )
+        } else {
+            userItem.copy(
+                predictedPeriodDate = "",
+                predictedOvulationDate = "",
+                predictedFertileStart = "",
+                predictedFertileEnd = ""
+            )
+        }
+
+        _currentUserFlow.value = updatedUser
+        saveUserToLocalDatabase(updatedUser)
+
+        if (isFirebaseOnline) {
+            firestore?.collection("users")?.document(userItem.uid)
+                ?.set(updatedUser)
+                ?.addOnCompleteListener {
+                    onFinished?.invoke(it.isSuccessful)
+                }
+        } else {
+            onFinished?.invoke(true)
         }
     }
 
@@ -735,6 +804,10 @@ object FirebaseManager {
             put("name", profile.name)
             put("email", profile.email)
             put("registrationDate", profile.registrationDate)
+            put("predictedPeriodDate", profile.predictedPeriodDate)
+            put("predictedOvulationDate", profile.predictedOvulationDate)
+            put("predictedFertileStart", profile.predictedFertileStart)
+            put("predictedFertileEnd", profile.predictedFertileEnd)
         }.toString()
     }
 
@@ -744,7 +817,11 @@ object FirebaseManager {
             uid = obj.getString("uid"),
             name = obj.getString("name"),
             email = obj.getString("email"),
-            registrationDate = obj.getString("registrationDate")
+            registrationDate = obj.getString("registrationDate"),
+            predictedPeriodDate = obj.optString("predictedPeriodDate", ""),
+            predictedOvulationDate = obj.optString("predictedOvulationDate", ""),
+            predictedFertileStart = obj.optString("predictedFertileStart", ""),
+            predictedFertileEnd = obj.optString("predictedFertileEnd", "")
         )
     }
 
@@ -759,7 +836,11 @@ object FirebaseManager {
                         uid = obj.getString("uid"),
                         name = obj.getString("name"),
                         email = obj.getString("email"),
-                        registrationDate = obj.getString("registrationDate")
+                        registrationDate = obj.getString("registrationDate"),
+                        predictedPeriodDate = obj.optString("predictedPeriodDate", ""),
+                        predictedOvulationDate = obj.optString("predictedOvulationDate", ""),
+                        predictedFertileStart = obj.optString("predictedFertileStart", ""),
+                        predictedFertileEnd = obj.optString("predictedFertileEnd", "")
                     )
                 )
             }
