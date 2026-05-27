@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505221327115",
+    "project_id": "periodcare-f55a8",
+    "storage_bucket": "periodcare-f55a8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505221327115:android:e15cdf887f461e1276092d",
+        "android_client_info": {
+          "package_name": "com.help.periodcare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummyApiKeyPlaceholder_PeriodCareApp"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
