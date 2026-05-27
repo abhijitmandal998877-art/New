@@ -38,7 +38,6 @@ object FirebaseManager {
     private var auth: FirebaseAuth? = null
     private var firestore: FirebaseFirestore? = null
     var isFirebaseOnline = false
-        private set
 
     // Shared preferences fallback storage
     private var contextRef: Context? = null
@@ -46,20 +45,27 @@ object FirebaseManager {
     fun initialize(context: Context) {
         contextRef = context.applicationContext
         try {
-            val app = FirebaseApp.getInstance()
-            auth = FirebaseAuth.getInstance()
-            firestore = FirebaseFirestore.getInstance()
-            isFirebaseOnline = true
-            Log.d(TAG, "Firebase successfully connected!")
-            
-            // Listen to active auth status
-            auth?.addAuthStateListener { firebaseAuth ->
-                val fbUser = firebaseAuth.currentUser
-                if (fbUser != null) {
-                    fetchUserProfile(fbUser.uid)
-                } else {
-                    _currentUserFlow.value = null
-                    _periodLogs.value = emptyList()
+            val options = com.google.firebase.FirebaseOptions.fromResource(context)
+            val apiKey = options?.apiKey
+            if (apiKey == null || apiKey.contains("DummyApiKeyPlaceholder") || apiKey.contains("placeholder") || apiKey.trim().isEmpty()) {
+                isFirebaseOnline = false
+                Log.d(TAG, "Dummy/placeholder API key detected in google-services.json! Transitioning automatically to Offline Sandbox Mode.")
+            } else {
+                val app = FirebaseApp.getInstance()
+                auth = FirebaseAuth.getInstance()
+                firestore = FirebaseFirestore.getInstance()
+                isFirebaseOnline = true
+                Log.d(TAG, "Firebase successfully connected!")
+                
+                // Listen to active auth status
+                auth?.addAuthStateListener { firebaseAuth ->
+                    val fbUser = firebaseAuth.currentUser
+                    if (fbUser != null) {
+                        fetchUserProfile(fbUser.uid)
+                    } else {
+                        _currentUserFlow.value = null
+                        _periodLogs.value = emptyList()
+                    }
                 }
             }
         } catch (e: Exception) {

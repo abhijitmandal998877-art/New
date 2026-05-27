@@ -38,6 +38,9 @@ fun AuthScreen(
     val context = LocalContext.current
     var isLoginTab by remember { mutableStateOf(true) }
     
+    // Connection mode state linking to FirebaseManager
+    var connectionModeOnline by remember { mutableStateOf(FirebaseManager.isFirebaseOnline) }
+    
     // Form States
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -145,7 +148,84 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Connection Mode State Banner
+            Surface(
+                color = if (connectionModeOnline) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                },
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = if (connectionModeOnline) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    } else {
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+                    }
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(
+                                color = if (connectionModeOnline) Color(0xFF43A047) else Color(0xFFF57C00),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1.0f)) {
+                        Text(
+                            text = if (connectionModeOnline) "Production Cloud Mode" else "Offline Sandbox Mode (Active)",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (connectionModeOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (connectionModeOnline) {
+                                "Connected securely to Firebase services."
+                            } else {
+                                "Dummy key detected. Using secure local sandbox offline."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                        )
+                    }
+                    if (connectionModeOnline) {
+                        TextButton(
+                            onClick = {
+                                FirebaseManager.isFirebaseOnline = false
+                                connectionModeOnline = false
+                                Toast.makeText(context, "Switched to offline Demo Sandbox!", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("SANDBOX", style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                Toast.makeText(context, "Using Sandbox Mode so you can use the app without any Firebase keys. Feel free to configure your Google Firebase key later inside google-services.json context.", Toast.LENGTH_LONG).show()
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Info icon Details",
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Form Fields
             Card(
@@ -259,20 +339,52 @@ fun AuthScreen(
                             isLoading = true
                             if (isLoginTab) {
                                 FirebaseManager.login(email.trim(), password) { success, msg ->
-                                    isLoading = false
                                     if (success) {
+                                        isLoading = false
                                         onAuthSuccess()
                                     } else {
-                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        if (msg.contains("API key", ignoreCase = true)) {
+                                            FirebaseManager.isFirebaseOnline = false
+                                            connectionModeOnline = false
+                                            Toast.makeText(context, "Firebase API Key is Invalid. Transitioning to local Sandbox Mode...", Toast.LENGTH_LONG).show()
+                                            // Retry immediately in local Sandbox mode
+                                            FirebaseManager.login(email.trim(), password) { subSuccess, subMsg ->
+                                                isLoading = false
+                                                if (subSuccess) {
+                                                    onAuthSuccess()
+                                                } else {
+                                                    Toast.makeText(context, subMsg, Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        } else {
+                                            isLoading = false
+                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 }
                             } else {
                                 FirebaseManager.signUp(fullName.trim(), email.trim(), password) { success, msg ->
-                                    isLoading = false
                                     if (success) {
+                                        isLoading = false
                                         onAuthSuccess()
                                     } else {
-                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        if (msg.contains("API key", ignoreCase = true)) {
+                                            FirebaseManager.isFirebaseOnline = false
+                                            connectionModeOnline = false
+                                            Toast.makeText(context, "Firebase API Key is Invalid. Transitioning to local Sandbox Mode...", Toast.LENGTH_LONG).show()
+                                            // Retry immediately in local Sandbox mode
+                                            FirebaseManager.signUp(fullName.trim(), email.trim(), password) { subSuccess, subMsg ->
+                                                isLoading = false
+                                                if (subSuccess) {
+                                                    onAuthSuccess()
+                                                } else {
+                                                    Toast.makeText(context, subMsg, Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        } else {
+                                            isLoading = false
+                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 }
                             }
