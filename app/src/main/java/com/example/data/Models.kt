@@ -6,7 +6,11 @@ data class UserProfile(
     val uid: String = "",
     val name: String = "",
     val email: String = "",
-    val registrationDate: String = ""
+    val registrationDate: String = "",
+    val predictedPeriodDate: String = "",
+    val predictedOvulationDate: String = "",
+    val predictedFertileStart: String = "",
+    val predictedFertileEnd: String = ""
 ) : Serializable
 
 data class PeriodLog(
